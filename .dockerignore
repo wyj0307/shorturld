@@ -1,0 +1,5 @@
+.git
+./pkg
+./src
+.godeps/pkg
+.godeps/src

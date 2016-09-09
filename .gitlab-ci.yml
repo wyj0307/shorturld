@@ -1,0 +1,41 @@
+before_script:
+  - docker info
+
+stages:
+  - build
+  - deploy
+  - publish
+
+build:
+  stage: build
+  only:
+    - master
+    - tags
+  script:
+    - rm -rf .godeps
+    - source gvp
+    - cp -rf /data/share/golang/* .godeps/src/
+    - gpm git
+    - CGO_ENABLED=0 go build -a -installsuffix cgo shorturld
+    - docker build -t crazyant/shorturld --rm=true .
+
+deploy:
+  stage: deploy
+  only:
+    - master
+    - tags
+  script:
+    - CIDS=`docker ps -q -f='name=groot-shorturld'`
+    - if [[ -n $CIDS ]]; then docker stop $CIDS; fi
+    - CIDS2=`docker ps -aq -f='name=groot-shorturld'`
+    - if [[ -n $CIDS2 ]]; then docker rm $CIDS2; fi
+    - docker run -it --name groot-shorturld -e MICRO_REGISTRY_ADDRESS=http://192.168.1.52:2379 -d crazyant/shorturld
+
+publish:
+  stage: publish
+  only:
+    - tags
+  script:
+    - docker tag crazyant/shorturld registry.crazyant.com:10099/shorturld:$CI_BUILD_TAG
+    - docker push registry.crazyant.com:10099/shorturld:$CI_BUILD_TAG
+    - docker rmi registry.crazyant.com:10099/shorturld:$CI_BUILD_TAG
